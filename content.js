@@ -9,6 +9,11 @@
   let lastCaptureDataUrl = "";
   let hoverRepositionQueued = false;
   let progressTimer = null;
+  const PANEL_BOX_KEY = "virouterPromptLensPanelBox";
+  const PANEL_VISIBLE_KEY = "virouterPromptLensPanelVisible";
+  let panelBox = { left: null, top: null, width: 440, height: null };
+  let panelBoxLoaded = false;
+  let dragActive = false;
   let state = {
     visible: false,
     mode: "idle",
@@ -22,7 +27,8 @@
     generationLoading: false,
     generationError: "",
     progress: 0,
-    copied: false
+    copied: false,
+    collapsed: false
   };
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -67,11 +73,34 @@
 
   async function openPanel() {
     state.visible = true;
+    try { sessionStorage.setItem(PANEL_VISIBLE_KEY, "1"); } catch {}
+    await loadPanelBox();
     state.settings = await getSettings();
     state.history = await getHistory();
     if (!state.settings?.apiKey) state.mode = "setup";
     else if (state.mode === "setup") state.mode = "idle";
     render();
+  }
+
+  async function loadPanelBox() {
+    if (panelBoxLoaded) return;
+    try {
+      const stored = await chrome.storage.local.get(PANEL_BOX_KEY);
+      const saved = stored?.[PANEL_BOX_KEY];
+      if (saved && typeof saved === "object") {
+        panelBox = {
+          left: typeof saved.left === "number" ? saved.left : null,
+          top: typeof saved.top === "number" ? saved.top : null,
+          width: typeof saved.width === "number" ? saved.width : 440,
+          height: typeof saved.height === "number" ? saved.height : null
+        };
+      }
+    } catch {}
+    panelBoxLoaded = true;
+  }
+
+  function persistPanelBox() {
+    try { chrome.storage.local.set({ [PANEL_BOX_KEY]: panelBox }); } catch {}
   }
 
   function ensureRoot() {
@@ -229,6 +258,7 @@
     }
     const action = target.getAttribute("data-action");
     if (action === "close") closePanel();
+    if (action === "collapse") toggleCollapse();
     if (action === "settings") chrome.runtime.openOptionsPage();
     if (action === "save-settings") void saveInlineSettings();
     if (action === "analyze-hover") analyzeHoveredImage();
@@ -245,8 +275,28 @@
   function closePanel() {
     stopFakeProgress();
     state.visible = false;
+    try { sessionStorage.removeItem(PANEL_VISIBLE_KEY); } catch {}
     render();
   }
+
+  function restorePanelIfNeeded() {
+    if (state.visible) return;
+    let wasOpen = false;
+    try { wasOpen = sessionStorage.getItem(PANEL_VISIBLE_KEY) === "1"; } catch {}
+    if (wasOpen) void openPanel();
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") restorePanelIfNeeded();
+  });
+  window.addEventListener("pageshow", restorePanelIfNeeded);
+  window.addEventListener("focus", restorePanelIfNeeded);
+  window.addEventListener("resize", () => {
+    if (!state.visible) return;
+    const card = root?.querySelector(".vpl-card");
+    if (card) applyPanelBox(card);
+  });
+  restorePanelIfNeeded();
 
   async function saveInlineSettings() {
     const response = await chrome.runtime.sendMessage({ type: "VPL_SAVE_SETTINGS", payload: state.settings || {} });
@@ -423,20 +473,119 @@
       host.innerHTML = "";
       return;
     }
+    const collapsed = state.collapsed ? " vpl-collapsed" : "";
     host.innerHTML = `
-      <section class="vpl-card vpl-${state.mode}" role="dialog" aria-label="Virouter Prompt Lens">
+      <section class="vpl-card vpl-${state.mode}${collapsed}" role="dialog" aria-label="Virouter Prompt Lens">
         ${renderHeader()}
+        ${state.collapsed ? "" : `
         ${state.mode === "setup" ? renderSetup() : ""}
         ${state.mode === "idle" ? renderIdle() : ""}
         ${state.mode === "loading" ? renderLoading() : ""}
         ${state.mode === "error" ? renderError() : ""}
         ${state.mode === "result" ? renderResult() : ""}
         ${renderHistory()}
+        <div class="vpl-resize-handle" data-resize="1" title="Drag to resize"></div>`}
       </section>`;
+    setupPanelInteractions(host);
+  }
+
+  function setupPanelInteractions(host) {
+    const card = host.querySelector(".vpl-card");
+    if (!card) return;
+    applyPanelBox(card);
+    const header = card.querySelector(".vpl-card-header");
+    if (header) header.addEventListener("pointerdown", startDrag);
+    const handle = card.querySelector(".vpl-resize-handle");
+    if (handle) handle.addEventListener("pointerdown", startResize);
+  }
+
+  function applyPanelBox(card) {
+    const margin = 12;
+    const maxW = Math.max(280, window.innerWidth - margin * 2);
+    const width = Math.min(panelBox.width || 440, maxW);
+    card.style.width = `${width}px`;
+    if (typeof panelBox.height === "number" && !state.collapsed) {
+      const maxH = Math.max(200, window.innerHeight - margin * 2);
+      card.style.height = `${Math.min(panelBox.height, maxH)}px`;
+    } else {
+      card.style.height = "";
+    }
+    if (typeof panelBox.left === "number" && typeof panelBox.top === "number") {
+      const left = Math.max(margin - width + 80, Math.min(panelBox.left, window.innerWidth - 80));
+      const top = Math.max(0, Math.min(panelBox.top, window.innerHeight - 48));
+      card.style.left = `${left}px`;
+      card.style.top = `${top}px`;
+      card.style.right = "auto";
+    }
+  }
+
+  function startDrag(event) {
+    if (event.target instanceof Element && event.target.closest(".vpl-close,.vpl-collapse")) return;
+    const card = root?.querySelector(".vpl-card");
+    if (!card) return;
+    event.preventDefault();
+    const rect = card.getBoundingClientRect();
+    const offsetX = event.clientX - rect.left;
+    const offsetY = event.clientY - rect.top;
+    dragActive = true;
+    card.classList.add("vpl-dragging");
+    const move = (e) => {
+      if (!dragActive) return;
+      const left = Math.max(-rect.width + 80, Math.min(e.clientX - offsetX, window.innerWidth - 80));
+      const top = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - 48));
+      card.style.left = `${left}px`;
+      card.style.top = `${top}px`;
+      card.style.right = "auto";
+      panelBox.left = left;
+      panelBox.top = top;
+    };
+    const up = () => {
+      dragActive = false;
+      card.classList.remove("vpl-dragging");
+      document.removeEventListener("pointermove", move, true);
+      document.removeEventListener("pointerup", up, true);
+      persistPanelBox();
+    };
+    document.addEventListener("pointermove", move, true);
+    document.addEventListener("pointerup", up, true);
+  }
+
+  function startResize(event) {
+    const card = root?.querySelector(".vpl-card");
+    if (!card) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = card.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startW = rect.width;
+    const startH = rect.height;
+    card.classList.add("vpl-resizing");
+    const move = (e) => {
+      const width = Math.max(320, Math.min(startW + (e.clientX - startX), window.innerWidth - 24));
+      const height = Math.max(260, Math.min(startH + (e.clientY - startY), window.innerHeight - 24));
+      card.style.width = `${width}px`;
+      card.style.height = `${height}px`;
+      panelBox.width = width;
+      panelBox.height = height;
+    };
+    const up = () => {
+      card.classList.remove("vpl-resizing");
+      document.removeEventListener("pointermove", move, true);
+      document.removeEventListener("pointerup", up, true);
+      persistPanelBox();
+    };
+    document.addEventListener("pointermove", move, true);
+    document.addEventListener("pointerup", up, true);
+  }
+
+  function toggleCollapse() {
+    state.collapsed = !state.collapsed;
+    render();
   }
 
   function renderHeader() {
-    return `<header class="vpl-card-header"><div class="vpl-mark">V</div><div><div class="vpl-eyebrow">Virouter</div><h2>Prompt Lens</h2></div><button class="vpl-close" data-action="close">×</button></header>`;
+    return `<header class="vpl-card-header"><div class="vpl-mark">V</div><div><div class="vpl-eyebrow">Virouter</div><h2>Prompt Lens</h2></div><button class="vpl-collapse" data-action="collapse" title="${state.collapsed ? "Expand" : "Collapse"}">${state.collapsed ? "▢" : "—"}</button><button class="vpl-close" data-action="close">×</button></header>`;
   }
 
   function renderSetup() {
