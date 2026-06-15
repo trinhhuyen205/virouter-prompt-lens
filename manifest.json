@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Virouter Prompt Lens",
+  "description": "Turn selected images into structured AI prompts using your own OpenAI-compatible API.",
+  "version": "0.1.0",
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting", "clipboardWrite"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Virouter Prompt Lens",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon.svg",
+      "32": "icons/icon.svg",
+      "48": "icons/icon.svg",
+      "128": "icons/icon.svg"
+    }
+  },
+  "icons": {
+    "16": "icons/icon.svg",
+    "32": "icons/icon.svg",
+    "48": "icons/icon.svg",
+    "128": "icons/icon.svg"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "exclude_matches": [
+        "https://accounts.google.com/*",
+        "https://*.accounts.google.com/*",
+        "https://checkout.stripe.com/*",
+        "https://*.checkout.stripe.com/*",
+        "https://pay.stripe.com/*",
+        "https://*.pay.stripe.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "all_frames": false,
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html"
+}
