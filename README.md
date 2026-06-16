@@ -29,7 +29,7 @@ A Chrome MV3 extension that turns selected images into structured prompts using 
 5. Open the extension popup and enter:
    - Base URL is prefilled as `https://api.virouter.com/v1`.
    - Virouter API key from the dashboard, e.g. `vr_sk_...`.
-   - Vision-capable model name. Default is `gpt-5.4-mini`; change it if your Virouter routing catalog uses a different vision model.
+   - Vision-capable model name. Default is `gpt-5.5`; change it if your Virouter routing catalog uses a different vision model.
 
 ## Notes
 

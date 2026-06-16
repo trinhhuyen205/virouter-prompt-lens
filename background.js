@@ -1,7 +1,7 @@
 const DEFAULT_SETTINGS = {
   baseUrl: "https://api.virouter.com/v1",
   apiKey: "",
-  model: "gpt-5.4-mini",
+  model: "gpt-5.5",
   imageModel: "gpt-image-2",
   imageSize: "1024x1024",
   imageQuality: "medium",
