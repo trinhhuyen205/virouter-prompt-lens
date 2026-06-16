@@ -1,4 +1,4 @@
-const fields = ["baseUrl", "apiKey", "model", "imageModel", "imageSize", "imageQuality", "autoGenerateImage", "language", "detailLevel", "saveHistory"];
+const fields = ["baseUrl", "apiKey", "model", "imageModel", "imageSize", "imageQuality", "autoGenerateImage", "enhancementMode", "language", "detailLevel", "saveHistory"];
 const statusEl = document.getElementById("status");
 const historyEl = document.getElementById("history");
 

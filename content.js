@@ -2,7 +2,7 @@
   if (window.__virouterPromptLensLoaded) return;
   window.__virouterPromptLensLoaded = true;
 
-  const tabs = ["prompt", "analysis", "midjourney", "sdxl", "flux", "json"];
+  const tabs = ["prompt", "virouter", "analysis", "midjourney", "sdxl", "flux", "json"];
   let root = null;
   let hoverButton = null;
   let selectionOverlay = null;
@@ -414,7 +414,7 @@
   }
 
   async function generateImage() {
-    const prompt = state.result?.promptDrafts?.general || currentText();
+    const prompt = state.result?.promptDrafts?.virouterImage || state.result?.analysis?.prompts?.virouterImage || state.result?.promptDrafts?.general || currentText();
     if (!prompt) return;
     state.generationLoading = true;
     state.generationError = "";
@@ -448,6 +448,7 @@
     if (state.activeTab === "json") return JSON.stringify(result.analysis || {}, null, 2);
     if (state.activeTab === "analysis") return formatAnalysis(result.analysis);
     if (state.activeTab === "prompt") return result.promptDrafts?.general || result.analysis?.summary || "";
+    if (state.activeTab === "virouter") return result.promptDrafts?.virouterImage || result.promptDrafts?.general || result.analysis?.summary || "";
     return result.promptDrafts?.[state.activeTab] || result.promptDrafts?.general || "";
   }
 

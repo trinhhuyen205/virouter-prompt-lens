@@ -6,6 +6,7 @@ const DEFAULT_SETTINGS = {
   imageSize: "1024x1024",
   imageQuality: "medium",
   autoGenerateImage: false,
+  enhancementMode: "enhanced",
   language: "en",
   detailLevel: "balanced",
   saveHistory: true
@@ -120,6 +121,7 @@ function normalizeSettings(value) {
     imageSize: ["1024x1024", "1024x1536", "1536x1024"].includes(value.imageSize) ? value.imageSize : DEFAULT_SETTINGS.imageSize,
     imageQuality: ["low", "medium", "high"].includes(value.imageQuality) ? value.imageQuality : DEFAULT_SETTINGS.imageQuality,
     autoGenerateImage: value.autoGenerateImage === true,
+    enhancementMode: ["faithful", "enhanced", "commercial", "cinematic", "viral-social"].includes(value.enhancementMode) ? value.enhancementMode : DEFAULT_SETTINGS.enhancementMode,
     language: ["en", "vi", "ja"].includes(value.language) ? value.language : DEFAULT_SETTINGS.language,
     detailLevel: ["fast", "balanced", "deep"].includes(value.detailLevel) ? value.detailLevel : DEFAULT_SETTINGS.detailLevel,
     saveHistory: value.saveHistory !== false
@@ -298,7 +300,7 @@ async function callVisionModel(settings, dataUrl) {
       messages: [{
         role: "user",
         content: [
-          { type: "text", text: buildAnalyzerPrompt(settings.language, settings.detailLevel) },
+          { type: "text", text: buildAnalyzerPrompt(settings.language, settings.detailLevel, settings.enhancementMode) },
           { type: "image_url", image_url: { url: dataUrl } }
         ]
       }],
@@ -315,10 +317,88 @@ async function callVisionModel(settings, dataUrl) {
   return parseAnalysis(content);
 }
 
-function buildAnalyzerPrompt(language, detailLevel) {
+function buildAnalyzerPrompt(language, detailLevel, enhancementMode = "enhanced") {
   const languageName = language === "vi" ? "Vietnamese" : language === "ja" ? "Japanese" : "English";
-  const depth = detailLevel === "deep" ? "highly detailed" : detailLevel === "fast" ? "concise" : "balanced and useful";
-  return `You are Virouter Prompt Lens, an image-to-prompt analyst. Analyze the image for AI image generation. Write user-facing text in ${languageName}. Be ${depth}. Return valid JSON only, no markdown. Do not identify real private persons. Required schema: {"summary":"string","subject":"string","composition":"string","lighting":"string","colors":["string"],"styleTags":["string"],"camera":"string","mood":"string","materials":["string"],"negativePrompt":"string","prompts":{"general":"string","midjourney":"string","sdxl":"string","flux":"string","dalle":"string"}}`;
+  const depth = detailLevel === "deep" ? "highly detailed" : detailLevel === "fast" ? "concise but complete" : "balanced and useful";
+  return `You are Virouter Prompt Lens, a senior AI image prompt engineer and visual analysis expert.
+
+Your job is to analyze the provided image and transform it into production-ready prompts for AI image generation.
+
+Perform four tasks:
+1. Accurately analyze the image.
+2. Classify the visual use case and recommend a prompt preset.
+3. Improve the prompt according to the requested enhancement mode.
+4. Return engine-specific prompts for multiple image generators.
+
+Rules:
+- Return valid JSON only. Do not use markdown fences.
+- Do not identify real private persons. Describe visible visual attributes only.
+- Preserve the original subject and visual direction unless enhancement mode asks for improvement.
+- Avoid copyrighted character names, living artist names, and brand names unless clearly user-provided.
+- Prefer concrete professional art-direction language over vague adjectives.
+- Include camera angle, lens feel, lighting direction, material texture, color palette, composition, and mood.
+
+Requested language: ${languageName}
+Detail level: ${depth}
+Enhancement mode: ${enhancementMode}
+Primary target engine: Virouter Image / gpt-image-2 via /v1/images/generations
+
+Enhancement modes:
+- faithful: preserve the source as closely as possible.
+- enhanced: improve clarity, lighting, composition, and visual polish.
+- commercial: make it premium, clean, advertising-ready, and conversion-oriented.
+- cinematic: make it dramatic, atmospheric, lens-aware, and filmic.
+- viral-social: make it bold, high-contrast, readable, and scroll-stopping.
+
+Preset families:
+portrait, fashion-editorial, product-photo, packaging, poster, logo-branding, character-sheet, toy-figurine, macro-photo, food-photo, architecture, interior, landscape, cinematic-scene, storyboard-grid, infographic, ui-mockup, social-post, anime-cartoon, 3d-illustration, paper-craft, clay-felt, vehicle, fantasy-sci-fi, generic-creative.
+
+Return this JSON schema exactly:
+{
+  "schemaVersion": "virouter-prompt-lens-v1",
+  "language": "${language}",
+  "visualAnalysis": {
+    "subject": "string",
+    "subjectDetails": "string",
+    "actionPose": "string",
+    "environment": "string",
+    "composition": "string",
+    "camera": "string",
+    "lighting": "string",
+    "colorPalette": ["string"],
+    "materials": ["string"],
+    "textures": ["string"],
+    "mood": "string",
+    "styleTags": ["string"],
+    "qualitySignals": ["string"],
+    "weaknesses": ["string"]
+  },
+  "intent": {
+    "detectedUseCase": "string",
+    "recommendedPreset": "string",
+    "confidence": 0.0,
+    "enhancementMode": "${enhancementMode}",
+    "targetAspectRatio": "string",
+    "recommendedImageSize": "string"
+  },
+  "prompts": {
+    "general": "string",
+    "virouterImage": "string optimized for gpt-image-2 image generation",
+    "midjourney": "string",
+    "sdxl": "string",
+    "flux": "string",
+    "dalle": "string"
+  },
+  "negativePrompt": "string",
+  "generationSettings": {
+    "aspectRatio": "string",
+    "imageSize": "string",
+    "quality": "string",
+    "styleStrength": "string"
+  },
+  "promptTags": ["string"],
+  "safetyNotes": ["string"]
+}`;
 }
 
 function extractAssistantText(body) {
@@ -333,9 +413,96 @@ function parseAnalysis(text) {
   const clean = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "");
   try {
     const parsed = JSON.parse(clean);
-    if (parsed && typeof parsed === "object") return parsed;
+    if (parsed && typeof parsed === "object") return normalizePromptEngineOutput(parsed);
   } catch {}
-  return { summary: text, prompts: { general: text } };
+  return normalizePromptEngineOutput({ summary: text, prompts: { general: text, virouterImage: text } });
+}
+
+function normalizePromptEngineOutput(parsed) {
+  const prompts = parsed?.prompts && typeof parsed.prompts === "object" ? parsed.prompts : {};
+  const visual = parsed?.visualAnalysis && typeof parsed.visualAnalysis === "object" ? parsed.visualAnalysis : {};
+  const fallbackSummary = parsed?.summary || visual.subject || prompts.general || "Prompt ready";
+  const styleTags = Array.isArray(visual.styleTags) ? visual.styleTags : Array.isArray(parsed?.styleTags) ? parsed.styleTags : [];
+  const colorPalette = Array.isArray(visual.colorPalette) ? visual.colorPalette : Array.isArray(parsed?.colors) ? parsed.colors : [];
+  const materials = Array.isArray(visual.materials) ? visual.materials : Array.isArray(parsed?.materials) ? parsed.materials : [];
+  const normalized = {
+    schemaVersion: parsed?.schemaVersion || "virouter-prompt-lens-v1",
+    language: parsed?.language || "en",
+    summary: fallbackSummary,
+    subject: visual.subject || parsed?.subject || "",
+    composition: visual.composition || parsed?.composition || "",
+    lighting: visual.lighting || parsed?.lighting || "",
+    colors: colorPalette,
+    styleTags,
+    camera: visual.camera || parsed?.camera || "",
+    mood: visual.mood || parsed?.mood || "",
+    materials,
+    negativePrompt: parsed?.negativePrompt || "low quality, blurry, distorted details, watermark, unreadable text",
+    visualAnalysis: {
+      subject: visual.subject || parsed?.subject || "",
+      subjectDetails: visual.subjectDetails || "",
+      actionPose: visual.actionPose || "",
+      environment: visual.environment || "",
+      composition: visual.composition || parsed?.composition || "",
+      camera: visual.camera || parsed?.camera || "",
+      lighting: visual.lighting || parsed?.lighting || "",
+      colorPalette,
+      materials,
+      textures: Array.isArray(visual.textures) ? visual.textures : [],
+      mood: visual.mood || parsed?.mood || "",
+      styleTags,
+      qualitySignals: Array.isArray(visual.qualitySignals) ? visual.qualitySignals : [],
+      weaknesses: Array.isArray(visual.weaknesses) ? visual.weaknesses : []
+    },
+    intent: parsed?.intent && typeof parsed.intent === "object" ? parsed.intent : {
+      detectedUseCase: inferUseCase(styleTags, fallbackSummary),
+      recommendedPreset: inferPreset(styleTags, fallbackSummary),
+      confidence: 0.5,
+      enhancementMode: "enhanced",
+      targetAspectRatio: "1:1",
+      recommendedImageSize: "1024x1024"
+    },
+    prompts: {
+      general: String(prompts.general || fallbackSummary || ""),
+      virouterImage: String(prompts.virouterImage || prompts.general || fallbackSummary || ""),
+      midjourney: String(prompts.midjourney || prompts.general || fallbackSummary || ""),
+      sdxl: String(prompts.sdxl || prompts.general || fallbackSummary || ""),
+      flux: String(prompts.flux || prompts.general || fallbackSummary || ""),
+      dalle: String(prompts.dalle || prompts.general || fallbackSummary || "")
+    },
+    generationSettings: parsed?.generationSettings && typeof parsed.generationSettings === "object" ? parsed.generationSettings : {},
+    promptTags: Array.isArray(parsed?.promptTags) ? parsed.promptTags : styleTags,
+    safetyNotes: Array.isArray(parsed?.safetyNotes) ? parsed.safetyNotes : []
+  };
+  return normalized;
+}
+
+function inferUseCase(tags, text) {
+  const haystack = `${tags.join(" ")} ${text}`.toLowerCase();
+  if (/product|packaging|商品|产品|包装/.test(haystack)) return "product-photo";
+  if (/fashion|editorial|服装|穿搭/.test(haystack)) return "fashion-editorial";
+  if (/portrait|人物|肖像/.test(haystack)) return "portrait";
+  if (/poster|海报|social/.test(haystack)) return "poster";
+  if (/character|角色/.test(haystack)) return "character-sheet";
+  if (/infographic|diagram|信息图/.test(haystack)) return "infographic";
+  if (/macro|微距/.test(haystack)) return "macro-photo";
+  if (/toy|figurine|手办|玩具/.test(haystack)) return "toy-figurine";
+  return "generic-creative";
+}
+
+function inferPreset(tags, text) {
+  const useCase = inferUseCase(tags, text);
+  const map = {
+    "product-photo": "product-commercial",
+    "fashion-editorial": "fashion-editorial",
+    "portrait": "portrait-cinematic",
+    "poster": "poster-social",
+    "character-sheet": "character-sheet",
+    "infographic": "infographic-museum",
+    "macro-photo": "macro-photo",
+    "toy-figurine": "toy-figurine"
+  };
+  return map[useCase] || "generic-creative";
 }
 
 function extractError(body, fallback) {
@@ -349,6 +516,7 @@ function buildPromptDrafts(analysis) {
   const prompts = analysis?.prompts && typeof analysis.prompts === "object" ? analysis.prompts : {};
   return {
     general: String(prompts.general || analysis?.summary || ""),
+    virouterImage: String(prompts.virouterImage || prompts.general || analysis?.summary || ""),
     midjourney: String(prompts.midjourney || prompts.general || analysis?.summary || ""),
     sdxl: String(prompts.sdxl || prompts.general || analysis?.summary || ""),
     flux: String(prompts.flux || prompts.general || analysis?.summary || ""),
