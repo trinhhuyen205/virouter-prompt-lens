@@ -1,4 +1,4 @@
-const fields = ["baseUrl", "apiKey", "model", "imageModel", "imageSize", "imageQuality", "autoGenerateImage", "enhancementMode", "language", "detailLevel", "saveHistory"];
+const fields = ["baseUrl", "apiKey", "model", "imageModel", "imageSize", "imageQuality", "autoGenerateImage", "enhancementMode", "language", "detailLevel", "showOnAllSites", "saveHistory"];
 const statusEl = document.getElementById("status");
 const historyEl = document.getElementById("history");
 
@@ -36,8 +36,21 @@ async function saveSettings() {
     if (!el) continue;
     payload[id] = el.type === "checkbox" ? el.checked : el.value;
   }
+  // If user wants hover button on all sites, request host permission first
+  if (payload.showOnAllSites) {
+    const granted = await chrome.permissions.request({ origins: ["<all_urls>"] }).catch(() => false);
+    if (!granted) {
+      payload.showOnAllSites = false;
+      const el = document.getElementById("showOnAllSites");
+      if (el) el.checked = false;
+      setStatus("Permission denied — hover button disabled.", true);
+    }
+  } else {
+    await chrome.permissions.remove({ origins: ["<all_urls>"] }).catch(() => {});
+  }
   const response = await send({ type: "VPL_SAVE_SETTINGS", payload });
   if (!response?.ok) return setStatus(response?.error || "Save failed.", true);
+  await send({ type: "VPL_SYNC_GLOBAL_SCRIPT" });
   setStatus("Settings saved.");
 }
 

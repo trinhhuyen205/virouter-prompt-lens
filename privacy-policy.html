@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Privacy Policy — Virouter Prompt Lens</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 720px; margin: 48px auto; padding: 0 24px; line-height: 1.7; color: #1d1d1f; }
+    h1 { font-size: 1.8rem; } h2 { font-size: 1.1rem; margin-top: 2rem; }
+    p, li { font-size: 0.95rem; color: #444; } a { color: #007aff; }
+    footer { margin-top: 3rem; font-size: 0.85rem; color: #888; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p><strong>Extension:</strong> Virouter Prompt Lens<br>
+  <strong>Last updated:</strong> June 2026</p>
+
+  <h2>What data we collect</h2>
+  <p>Virouter Prompt Lens does <strong>not</strong> collect, transmit, or store any personal data on remote servers operated by this extension.</p>
+  <ul>
+    <li><strong>Images:</strong> Images you choose to analyze are resized locally in your browser and sent directly to the OpenAI-compatible API endpoint you configure (default: <code>api.virouter.com</code>). The extension itself never stores or forwards images to any other destination.</li>
+    <li><strong>API key:</strong> Your API key is stored locally in <code>chrome.storage.local</code> on your device only and is sent only to your configured API endpoint as an Authorization header.</li>
+    <li><strong>Prompt history:</strong> Analysis history is stored locally on your device only. You can clear it at any time from the popup or panel.</li>
+    <li><strong>No analytics, no tracking:</strong> The extension contains no analytics, telemetry, crash reporting, or tracking code of any kind.</li>
+  </ul>
+
+  <h2>Optional host access permission</h2>
+  <p>If you enable <em>"Show hover button on all sites"</em>, the extension requests access to all HTTP/HTTPS pages to inject a lightweight UI overlay. This permission is optional, granted by you explicitly, and can be removed at any time from extension settings. It is used solely to display the prompt button — no page content is read or transmitted.</p>
+
+  <h2>Third-party API</h2>
+  <p>When you analyze an image, the resized image data and your prompt are sent to the API base URL you configure. By default this is <a href="https://api.virouter.com">api.virouter.com</a>. Please refer to Virouter's own privacy policy for how that service handles data. You may point the extension at any OpenAI-compatible API of your choice.</p>
+
+  <h2>Contact</h2>
+  <p>For questions about this extension, open an issue at <a href="https://github.com/trinhhuyen205/virouter-prompt-lens">github.com/trinhhuyen205/virouter-prompt-lens</a>.</p>
+
+  <footer>Virouter Prompt Lens is an open-source Chrome extension. No affiliation with OpenAI.</footer>
+</body>
+</html>

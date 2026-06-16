@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   enhancementMode: "enhanced",
   language: "en",
   detailLevel: "balanced",
+  showOnAllSites: false,
   saveHistory: true
 };
 
@@ -17,6 +18,16 @@ const SETTINGS_KEY = "virouterPromptLensSettings";
 const MAX_HISTORY = 12;
 const MAX_IMAGE_EDGE = 1600;
 const JPEG_QUALITY = 0.88;
+
+const GLOBAL_SCRIPT_ID = "vpl-global-prompt-button";
+const GLOBAL_SCRIPT_EXCLUDES = [
+  "https://accounts.google.com/*",
+  "https://*.accounts.google.com/*",
+  "https://checkout.stripe.com/*",
+  "https://*.checkout.stripe.com/*",
+  "https://pay.stripe.com/*",
+  "https://*.pay.stripe.com/*"
+];
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -29,7 +40,45 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Open Virouter Prompt Lens",
     contexts: ["page", "selection", "image"]
   });
+  void syncGlobalScript();
 });
+
+chrome.runtime.onStartup?.addListener(() => {
+  void syncGlobalScript();
+});
+
+async function registerGlobalScript() {
+  try {
+    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [GLOBAL_SCRIPT_ID] }).catch(() => []);
+    if (Array.isArray(existing) && existing.length) return true;
+    await chrome.scripting.registerContentScripts([{
+      id: GLOBAL_SCRIPT_ID,
+      matches: ["http://*/*", "https://*/*"],
+      excludeMatches: GLOBAL_SCRIPT_EXCLUDES,
+      js: ["content.js"],
+      css: ["content.css"],
+      runAt: "document_idle",
+      allFrames: false,
+      persistAcrossSessions: true
+    }]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function unregisterGlobalScript() {
+  await chrome.scripting.unregisterContentScripts({ ids: [GLOBAL_SCRIPT_ID] }).catch(() => {});
+}
+
+async function syncGlobalScript() {
+  try {
+    const settings = await getSettings();
+    const hasHost = await chrome.permissions.contains({ origins: ["<all_urls>"] }).catch(() => false);
+    if (settings.showOnAllSites && hasHost) await registerGlobalScript();
+    else await unregisterGlobalScript();
+  } catch {}
+}
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (!tab?.id) return;
@@ -52,7 +101,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message?.type === "VPL_SAVE_SETTINGS") {
         const settings = normalizeSettings(message.payload || {});
         await chrome.storage.local.set({ [SETTINGS_KEY]: settings });
+        await syncGlobalScript();
         sendResponse({ ok: true, data: settings });
+        return;
+      }
+      if (message?.type === "VPL_SYNC_GLOBAL_SCRIPT") {
+        await syncGlobalScript();
+        const active = await chrome.scripting.getRegisteredContentScripts({ ids: [GLOBAL_SCRIPT_ID] }).catch(() => []);
+        sendResponse({ ok: true, data: { registered: Array.isArray(active) && active.length > 0 } });
         return;
       }
       if (message?.type === "VPL_GET_HISTORY") {
@@ -124,6 +180,7 @@ function normalizeSettings(value) {
     enhancementMode: ["faithful", "enhanced", "commercial", "cinematic", "viral-social"].includes(value.enhancementMode) ? value.enhancementMode : DEFAULT_SETTINGS.enhancementMode,
     language: ["en", "vi", "ja"].includes(value.language) ? value.language : DEFAULT_SETTINGS.language,
     detailLevel: ["fast", "balanced", "deep"].includes(value.detailLevel) ? value.detailLevel : DEFAULT_SETTINGS.detailLevel,
+    showOnAllSites: value.showOnAllSites === true,
     saveHistory: value.saveHistory !== false
   };
 }
