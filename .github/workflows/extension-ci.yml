@@ -1,0 +1,83 @@
+name: Extension CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest JSON
+        run: python3 -m json.tool manifest.json >/dev/null
+
+      - name: Check JavaScript syntax
+        run: |
+          for file in background.js content.js popup.js; do
+            node --check "$file"
+          done
+
+      - name: Reject broad static permissions
+        run: |
+          if grep -q '"host_permissions"\|"content_scripts"\|"<all_urls>"' manifest.json; then
+            echo "Broad static permissions are not allowed in manifest.json"
+            exit 1
+          fi
+
+      - name: Build extension zip
+        run: |
+          python3 - <<'PY'
+          import os
+          import zipfile
+
+          root = os.getcwd()
+          output = os.path.join(root, "virouter-prompt-lens.zip")
+          exclude_parts = {".git", "node_modules", "__MACOSX"}
+          exclude_suffixes = {".zip", ".DS_Store"}
+
+          if os.path.exists(output):
+              os.remove(output)
+
+          with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
+              for current, dirs, files in os.walk(root):
+                  rel_current = os.path.relpath(current, root)
+                  if rel_current == ".git" or rel_current.startswith(".git/"):
+                      dirs[:] = []
+                      continue
+                  dirs[:] = [directory for directory in dirs if directory not in exclude_parts]
+                  for filename in files:
+                      if filename in exclude_suffixes or any(filename.endswith(suffix) for suffix in exclude_suffixes):
+                          continue
+                      path = os.path.join(current, filename)
+                      rel = os.path.relpath(path, root)
+                      if any(part in exclude_parts for part in rel.split(os.sep)):
+                          continue
+                      archive.write(path, rel)
+          print(output)
+          PY
+
+      - name: Verify zip contents
+        run: |
+          python3 - <<'PY'
+          import json
+          import zipfile
+
+          with zipfile.ZipFile('virouter-prompt-lens.zip') as archive:
+              names = archive.namelist()
+              bad = [name for name in names if '/.git/' in name or name.endswith('.zip') or '/node_modules/' in name or '__MACOSX' in name or name.endswith('.DS_Store')]
+              if bad:
+                  raise SystemExit(f'Unexpected zip entries: {bad}')
+              manifest = json.loads(archive.read('manifest.json'))
+              if 'host_permissions' in manifest:
+                  raise SystemExit('manifest.json must not include host_permissions')
+              if 'content_scripts' in manifest:
+                  raise SystemExit('manifest.json must not include content_scripts')
+          print('zip-ok')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: virouter-prompt-lens
+          path: virouter-prompt-lens.zip
