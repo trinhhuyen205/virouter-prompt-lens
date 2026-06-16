@@ -36,7 +36,6 @@ A Chrome MV3 extension that turns selected images into structured prompts using 
 - The extension sends only selected/uploaded/captured image data to the configured endpoint.
 - API key and history are stored in Chrome local extension storage.
 - Use a vision-capable model. Text-only models will return an upstream error.
-- This is a clean rewrite and does not reuse PromptCard source code, assets, branding, backend, or billing logic.
 
 ## License
 
