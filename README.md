@@ -1,10 +1,10 @@
 # Virouter Prompt Lens
 
-A clean-room Chrome MV3 extension that turns selected images into structured prompts using a user-provided OpenAI-compatible API endpoint.
+A Chrome MV3 extension that turns selected images into structured prompts using a user-provided OpenAI-compatible API endpoint.
 
 ## Features
 
-- Page-native floating PromptCard-style panel
+- Page-native floating panel
 - Hover image button: **Prompt**
 - Right-click image: **Analyze image with Virouter**
 - Capture visible tab or drag-select a custom page area
