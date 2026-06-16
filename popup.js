@@ -1,4 +1,10 @@
 const fields = ["baseUrl", "apiKey", "model", "imageModel", "imageSize", "imageQuality", "autoGenerateImage", "enhancementMode", "language", "detailLevel", "showOnAllSites", "saveHistory"];
+const checkboxDefaults = {
+  autoGenerateImage: false,
+  showOnAllSites: false,
+  saveHistory: true
+};
+const GLOBAL_MATCHES = ["http://*/*", "https://*/*"];
 const statusEl = document.getElementById("status");
 const historyEl = document.getElementById("history");
 
@@ -24,7 +30,7 @@ async function loadSettings() {
   for (const id of fields) {
     const el = document.getElementById(id);
     if (!el) continue;
-    if (el.type === "checkbox") el.checked = settings[id] !== false;
+    if (el.type === "checkbox") el.checked = settings[id] ?? checkboxDefaults[id] ?? false;
     else el.value = settings[id] || "";
   }
 }
@@ -38,20 +44,20 @@ async function saveSettings() {
   }
   // If user wants hover button on all sites, request host permission first
   if (payload.showOnAllSites) {
-    const granted = await chrome.permissions.request({ origins: ["<all_urls>"] }).catch(() => false);
+    const granted = await chrome.permissions.request({ origins: GLOBAL_MATCHES }).catch(() => false);
     if (!granted) {
       payload.showOnAllSites = false;
       const el = document.getElementById("showOnAllSites");
       if (el) el.checked = false;
-      setStatus("Permission denied — hover button disabled.", true);
+      setStatus("Hover on all sites needs optional site access permission.", true);
     }
   } else {
-    await chrome.permissions.remove({ origins: ["<all_urls>"] }).catch(() => {});
+    await chrome.permissions.remove({ origins: GLOBAL_MATCHES }).catch(() => {});
   }
   const response = await send({ type: "VPL_SAVE_SETTINGS", payload });
   if (!response?.ok) return setStatus(response?.error || "Save failed.", true);
   await send({ type: "VPL_SYNC_GLOBAL_SCRIPT" });
-  setStatus("Settings saved.");
+  setStatus(response.data?.showOnAllSites ? "Settings saved. Hover button enabled on allowed sites." : "Settings saved.");
 }
 
 async function openPanel() {

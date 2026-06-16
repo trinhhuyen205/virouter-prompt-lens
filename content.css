@@ -1,10 +1,11 @@
 /* Virouter Prompt Lens — macOS vibrancy UI */
-#virouter-prompt-lens-root,#virouter-prompt-lens-root *,#virouter-prompt-lens-hover,#virouter-prompt-lens-crop,#virouter-prompt-lens-crop *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+#virouter-prompt-lens-root,#virouter-prompt-lens-root *,#virouter-prompt-lens-hover,#virouter-prompt-lens-hover-outline,#virouter-prompt-lens-crop,#virouter-prompt-lens-crop *{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 
 /* Hover pill */
 #virouter-prompt-lens-hover{position:fixed;z-index:2147483646;display:none;align-items:center;gap:6px;border:.5px solid rgba(255,255,255,.7);border-radius:980px;background:rgba(255,255,255,.62);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);color:#1d1d1f;padding:7px 13px;font-size:12px;font-weight:600;letter-spacing:-.01em;box-shadow:0 1px 1px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.16),inset 0 .5px 0 rgba(255,255,255,.9);cursor:pointer}
 #virouter-prompt-lens-hover:hover{background:rgba(255,255,255,.78)}
 #virouter-prompt-lens-hover span{color:#007aff}
+#virouter-prompt-lens-hover-outline{position:fixed;z-index:2147483645;display:none;border:2px solid rgba(0,122,255,.9);border-radius:12px;background:rgba(0,122,255,.08);box-shadow:0 0 0 9999px rgba(0,0,0,.02),0 0 0 4px rgba(0,122,255,.16);pointer-events:none}
 
 /* Card — translucent vibrancy window */
 .vpl-card{position:fixed;right:20px;top:72px;z-index:2147483647;display:flex;flex-direction:column;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 96px);overflow:hidden;border:.5px solid rgba(0,0,0,.12);border-radius:18px;background:rgba(250,250,252,.72);-webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);color:#1d1d1f;box-shadow:0 0 0 .5px rgba(255,255,255,.5) inset,0 12px 32px rgba(0,0,0,.18),0 32px 80px rgba(0,0,0,.22)}

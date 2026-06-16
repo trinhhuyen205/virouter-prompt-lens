@@ -20,6 +20,7 @@ const MAX_IMAGE_EDGE = 1600;
 const JPEG_QUALITY = 0.88;
 
 const GLOBAL_SCRIPT_ID = "vpl-global-prompt-button";
+const GLOBAL_SCRIPT_MATCHES = ["http://*/*", "https://*/*"];
 const GLOBAL_SCRIPT_EXCLUDES = [
   "https://accounts.google.com/*",
   "https://*.accounts.google.com/*",
@@ -53,7 +54,7 @@ async function registerGlobalScript() {
     if (Array.isArray(existing) && existing.length) return true;
     await chrome.scripting.registerContentScripts([{
       id: GLOBAL_SCRIPT_ID,
-      matches: ["http://*/*", "https://*/*"],
+      matches: GLOBAL_SCRIPT_MATCHES,
       excludeMatches: GLOBAL_SCRIPT_EXCLUDES,
       js: ["content.js"],
       css: ["content.css"],
@@ -74,7 +75,7 @@ async function unregisterGlobalScript() {
 async function syncGlobalScript() {
   try {
     const settings = await getSettings();
-    const hasHost = await chrome.permissions.contains({ origins: ["<all_urls>"] }).catch(() => false);
+    const hasHost = await chrome.permissions.contains({ origins: GLOBAL_SCRIPT_MATCHES }).catch(() => false);
     if (settings.showOnAllSites && hasHost) await registerGlobalScript();
     else await unregisterGlobalScript();
   } catch {}

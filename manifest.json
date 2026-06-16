@@ -4,7 +4,7 @@
   "description": "Turn selected images into structured AI prompts using your own OpenAI-compatible API.",
   "version": "0.1.0",
   "permissions": ["contextMenus", "storage", "activeTab", "scripting", "clipboardWrite"],
-  "optional_host_permissions": ["<all_urls>"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -25,22 +25,5 @@
     "48": "icons/icon-48.png",
     "128": "icons/icon-128.png"
   },
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "exclude_matches": [
-        "https://accounts.google.com/*",
-        "https://*.accounts.google.com/*",
-        "https://checkout.stripe.com/*",
-        "https://*.checkout.stripe.com/*",
-        "https://pay.stripe.com/*",
-        "https://*.pay.stripe.com/*"
-      ],
-      "js": ["content.js"],
-      "css": ["content.css"],
-      "all_frames": false,
-      "run_at": "document_idle"
-    }
-  ],
   "options_page": "options.html"
 }

@@ -2,9 +2,13 @@
   if (window.__virouterPromptLensLoaded) return;
   window.__virouterPromptLensLoaded = true;
 
-  const tabs = ["prompt", "virouter", "analysis", "midjourney", "sdxl", "flux", "json"];
+  const tabs = ["prompt", "virouter", "analysis", "midjourney", "sdxl", "flux", "dalle", "json"];
+  const SETTINGS_KEY = "virouterPromptLensSettings";
   let root = null;
+  let hoverEnabled = false;
+  let hoverSessionEnabled = false;
   let hoverButton = null;
+  let hoverOutline = null;
   let selectionOverlay = null;
   let lastCaptureDataUrl = "";
   let hoverRepositionQueued = false;
@@ -33,6 +37,8 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === "VPL_OPEN_PANEL") {
+      hoverSessionEnabled = true;
+      hoverEnabled = true;
       void openPanel();
       sendResponse?.({ ok: true });
       return false;
@@ -58,11 +64,27 @@
   }, true);
 
   document.addEventListener("pointermove", (event) => {
+    if (!hoverEnabled) return;
     const image = imageFromEvent(event);
-    if (!image || !image.src || image.getBoundingClientRect().width < 90 || image.getBoundingClientRect().height < 90) return;
+    if (!image || !image.src) return;
+    const rect = image.getBoundingClientRect();
+    if (rect.width < 90 || rect.height < 90) return;
     state.targetImage = image;
     showHoverButton(image);
   }, true);
+
+  void refreshHoverPreference();
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes[SETTINGS_KEY]) {
+      hoverEnabled = hoverSessionEnabled || changes[SETTINGS_KEY].newValue?.showOnAllSites === true;
+      if (!hoverEnabled) hideHoverControls();
+    }
+  });
+
+  async function refreshHoverPreference() {
+    const settings = await getSettings();
+    hoverEnabled = hoverSessionEnabled || settings?.showOnAllSites === true;
+  }
 
   window.addEventListener("scroll", scheduleHoverReposition, true);
   window.addEventListener("resize", scheduleHoverReposition);
@@ -127,9 +149,20 @@
       });
       document.documentElement.appendChild(hoverButton);
     }
+    if (!hoverOutline) {
+      hoverOutline = document.createElement("div");
+      hoverOutline.id = "virouter-prompt-lens-hover-outline";
+      document.documentElement.appendChild(hoverOutline);
+    }
     state.targetImage = image;
     repositionHoverButton();
     hoverButton.style.display = "inline-flex";
+    hoverOutline.style.display = "block";
+  }
+
+  function hideHoverControls() {
+    if (hoverButton) hoverButton.style.display = "none";
+    if (hoverOutline) hoverOutline.style.display = "none";
   }
 
   function scheduleHoverReposition() {
@@ -147,11 +180,17 @@
     if (!hoverButton || !image?.isConnected) return;
     const rect = image.getBoundingClientRect();
     if (rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth) {
-      hoverButton.style.display = "none";
+      hideHoverControls();
       return;
     }
     hoverButton.style.left = `${Math.max(10, Math.min(window.innerWidth - 112, rect.right - 98))}px`;
     hoverButton.style.top = `${Math.max(10, Math.min(window.innerHeight - 44, rect.top + 10))}px`;
+    if (hoverOutline) {
+      hoverOutline.style.left = `${Math.max(0, rect.left)}px`;
+      hoverOutline.style.top = `${Math.max(0, rect.top)}px`;
+      hoverOutline.style.width = `${Math.min(window.innerWidth - Math.max(0, rect.left), rect.width)}px`;
+      hoverOutline.style.height = `${Math.min(window.innerHeight - Math.max(0, rect.top), rect.height)}px`;
+    }
   }
 
   async function getSettings() {
@@ -259,7 +298,7 @@
     const action = target.getAttribute("data-action");
     if (action === "close") closePanel();
     if (action === "collapse") toggleCollapse();
-    if (action === "settings") chrome.runtime.openOptionsPage();
+    if (action === "settings") void chrome.runtime.sendMessage({ type: "VPL_OPEN_OPTIONS" });
     if (action === "save-settings") void saveInlineSettings();
     if (action === "analyze-hover") analyzeHoveredImage();
     if (action === "capture-area") void requestCaptureForCrop();
@@ -270,7 +309,7 @@
     if (action === "video-coming-soon") showVideoStub();
     if (action === "clear-history") void clearHistory();
     if (action === "retry") analyzeHoveredImage();
-    if (action === "open-virouter") chrome.tabs.create({ url: "https://virouter.com/?ref=prompt-lens&utm_source=extension&utm_medium=setup" });
+    if (action === "open-virouter") void chrome.runtime.sendMessage({ type: "VPL_OPEN_URL", payload: { url: "https://virouter.com/?ref=prompt-lens&utm_source=extension&utm_medium=setup" } });
   }
 
   function closePanel() {
@@ -396,10 +435,31 @@
     return canvas.toDataURL("image/jpeg", 0.92);
   }
 
+  async function writeClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      try {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0";
+        document.body.appendChild(area);
+        area.select();
+        const ok = document.execCommand("copy");
+        area.remove();
+        return ok;
+      } catch {
+        return false;
+      }
+    }
+  }
+
   async function copyPrompt() {
     const text = currentText();
     if (!text) return;
-    await navigator.clipboard.writeText(text);
+    const ok = await writeClipboard(text);
+    if (!ok) return;
     state.copied = true;
     render();
     setTimeout(() => {
@@ -411,7 +471,7 @@
   async function copyImagePrompt() {
     const prompt = state.generatedImage?.prompt;
     if (!prompt) return;
-    await navigator.clipboard.writeText(prompt);
+    await writeClipboard(prompt);
   }
 
   async function generateImage() {
