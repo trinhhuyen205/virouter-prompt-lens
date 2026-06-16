@@ -37,3 +37,9 @@ A clean-room Chrome MV3 extension that turns selected images into structured pro
 - API key and history are stored in Chrome local extension storage.
 - Use a vision-capable model. Text-only models will return an upstream error.
 - This is a clean rewrite and does not reuse PromptCard source code, assets, branding, backend, or billing logic.
+
+## License
+
+Licensed under the Apache License, Version 2.0. See the [LICENSE](LICENSE) and [NOTICE](NOTICE) files for details.
+
+Copyright 2026 Virouter.
