@@ -115,3 +115,11 @@
 .vpl-card.vpl-collapsed .vpl-card-header{border-bottom:0}
 .vpl-resize-handle{position:absolute;right:3px;bottom:3px;width:18px;height:18px;cursor:nwse-resize;border-radius:0 0 16px 0;background:linear-gradient(135deg,transparent 45%,rgba(0,0,0,.25) 45%,rgba(0,0,0,.25) 55%,transparent 55%,transparent 70%,rgba(0,0,0,.25) 70%,rgba(0,0,0,.25) 80%,transparent 80%);opacity:.5;touch-action:none;z-index:3}
 .vpl-resize-handle:hover{opacity:.85}
+
+/* CTA banner */
+.vpl-cta{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(0,122,255,.12),rgba(88,86,214,.12));border:1px solid rgba(0,122,255,.25);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.vpl-cta-text{flex:1;min-width:0}
+.vpl-cta-text strong{display:block;font-size:12px;font-weight:650;color:#007aff;margin-bottom:2px}
+.vpl-cta-text span{display:block;font-size:11px;color:#6e6e73;line-height:1.35}
+.vpl-cta-btn{flex-shrink:0;background:#007aff;color:#fff;border:none;border-radius:980px;padding:7px 13px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;transition:opacity .15s}
+.vpl-cta-btn:hover{opacity:.85}
